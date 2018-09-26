@@ -6,6 +6,29 @@ RSpec.describe RateLimiter, type: :model do
     @rand = Random.new()
   end
 
+  it 'should execute basic task correctly' do
+    r = RateExec.new throws: true
+    4.times do 
+      r.limit :expensive do
+        sleep 1
+      end
+    end
+
+    expect do 
+      r.limit :should_raise_exception
+    end.to raise_exception(RateLimiter::Limited)
+  end
+
+  it 'should not throw exception when not configured to do so' do
+    r = RateExec.new throws: false
+
+    40.times do 
+      r.limit :expensive do
+        sleep 1
+      end
+    end
+  end
+
   it 'should derive shared secret correctly' do
     public_key = RateLimiter.handshake @client.public_key
     shared_secret = @client.dh_compute_key(public_key)
