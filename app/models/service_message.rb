@@ -1,0 +1,2 @@
+class ServiceMessage < ApplicationRecord
+end

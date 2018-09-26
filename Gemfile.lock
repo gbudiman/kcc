@@ -267,6 +267,7 @@ DEPENDENCIES
   capybara (>= 2.15)
   chromedriver-helper
   coffee-rails (~> 4.2)
+  concurrent-ruby
   figaro
   haml-rails
   jbuilder (~> 2.5)

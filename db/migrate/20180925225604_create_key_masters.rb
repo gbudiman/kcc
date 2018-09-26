@@ -6,7 +6,7 @@ class CreateKeyMasters < ActiveRecord::Migration[5.2]
       t.integer                :threshold, null: false, default: 10
       t.integer                :period, null: false, default: 60
       t.datetime               :created_at, null: false, default: -> { 'CURRENT_TIMESTAMP' }
-      t.datetime               :expires_at, null: false, default: -> { 'CURRENT_TIMESTAMP + interval \'1 hour\'' }
+      t.datetime               :expires_at, null: false, default: -> { 'now()::timestamp + \'1 hours\'::interval' }
     end
 
     add_index :key_masters, :token, unique: true

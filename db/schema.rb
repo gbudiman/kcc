@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2018_09_25_225604) do
+ActiveRecord::Schema.define(version: 2018_09_26_003106) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -20,15 +20,29 @@ ActiveRecord::Schema.define(version: 2018_09_25_225604) do
     t.integer "threshold", default: 10, null: false
     t.integer "period", default: 60, null: false
     t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
-    t.datetime "expires_at", default: -> { "(CURRENT_TIMESTAMP + '01:00:00'::interval)" }, null: false
+    t.datetime "expires_at", default: -> { "((now())::timestamp without time zone + '01:00:00'::interval)" }, null: false
     t.index ["token"], name: "index_key_masters_on_token", unique: true
   end
 
   create_table "rate_limiters", force: :cascade do |t|
     t.bigint "key_master_id"
+    t.integer "status", default: 0, null: false
     t.datetime "access_time", default: -> { "CURRENT_TIMESTAMP" }, null: false
     t.index ["access_time"], name: "index_rate_limiters_on_access_time", order: "DESC NULLS LAST"
     t.index ["key_master_id"], name: "index_rate_limiters_on_key_master_id"
+    t.index ["status"], name: "index_rate_limiters_on_status"
+  end
+
+  create_table "service_messages", force: :cascade do |t|
+    t.string "medium", null: false
+    t.string "identifier", null: false
+    t.integer "status", null: false
+    t.text "body", null: false
+    t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.index ["created_at"], name: "index_service_messages_on_created_at"
+    t.index ["identifier"], name: "index_service_messages_on_identifier"
+    t.index ["medium"], name: "index_service_messages_on_medium"
+    t.index ["status"], name: "index_service_messages_on_status"
   end
 
 end
