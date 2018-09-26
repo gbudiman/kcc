@@ -19,16 +19,18 @@ ActiveRecord::Schema.define(version: 2018_09_26_003106) do
     t.string "token", null: false
     t.integer "threshold", default: 10, null: false
     t.integer "period", default: 60, null: false
-    t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
-    t.datetime "expires_at", default: -> { "((now())::timestamp without time zone + '01:00:00'::interval)" }, null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
     t.index ["token"], name: "index_key_masters_on_token", unique: true
   end
 
   create_table "rate_limiters", force: :cascade do |t|
     t.bigint "key_master_id"
     t.integer "status", default: 0, null: false
-    t.datetime "access_time", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.integer "nonce", default: -1, null: false
+    t.datetime "access_time", null: false
     t.index ["access_time"], name: "index_rate_limiters_on_access_time", order: "DESC NULLS LAST"
+    t.index ["key_master_id", "nonce"], name: "index_rate_limiters_on_key_master_id_and_nonce"
     t.index ["key_master_id"], name: "index_rate_limiters_on_key_master_id"
     t.index ["status"], name: "index_rate_limiters_on_status"
   end
