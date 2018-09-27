@@ -6,8 +6,28 @@ class Gatekeeper < ApplicationRecord
 
   before_save :coalesce_access_time
 
+  def self.generate_private_key
+    puts 'Invalid or non-existent private key. Generating random key...'
+    puts 'Copy the following PEM to config/application.yml under private_key, then restart the server'
+    p OpenSSL::PKey::EC.generate('secp256k1').to_pem
+
+    return false
+  end
+
   def self.handshake client_public_key, threshold: 10, period: 1.minute
-    server = OpenSSL::PKey::EC.new(ENV['private_key'])
+    private_key = ENV['private_key']
+    server = nil
+
+    if private_key == nil
+      return generate_private_key
+    else
+      server = OpenSSL::PKey::EC.new(private_key)
+      if not server.check_key
+        return generate_private_key
+      end
+    end
+
+    
     shared_secret = server.dh_compute_key(client_public_key)
 
     kms = KeyMaster.find_or_initialize_by token: Base64.encode64(shared_secret)
