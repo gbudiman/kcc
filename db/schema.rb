@@ -15,6 +15,18 @@ ActiveRecord::Schema.define(version: 2018_09_26_003106) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
+  create_table "gatekeepers", force: :cascade do |t|
+    t.bigint "key_master_id"
+    t.integer "status", default: 0, null: false
+    t.string "symfunc"
+    t.integer "nonce", default: -1, null: false
+    t.datetime "access_time", null: false
+    t.index ["access_time"], name: "index_gatekeepers_on_access_time", order: "DESC NULLS LAST"
+    t.index ["key_master_id", "symfunc", "nonce"], name: "index_gatekeepers_on_key_master_id_and_symfunc_and_nonce"
+    t.index ["key_master_id"], name: "index_gatekeepers_on_key_master_id"
+    t.index ["status"], name: "index_gatekeepers_on_status"
+  end
+
   create_table "key_masters", force: :cascade do |t|
     t.string "token", null: false
     t.integer "threshold", default: 10, null: false
@@ -22,17 +34,6 @@ ActiveRecord::Schema.define(version: 2018_09_26_003106) do
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.index ["token"], name: "index_key_masters_on_token", unique: true
-  end
-
-  create_table "rate_limiters", force: :cascade do |t|
-    t.bigint "key_master_id"
-    t.integer "status", default: 0, null: false
-    t.integer "nonce", default: -1, null: false
-    t.datetime "access_time", null: false
-    t.index ["access_time"], name: "index_rate_limiters_on_access_time", order: "DESC NULLS LAST"
-    t.index ["key_master_id", "nonce"], name: "index_rate_limiters_on_key_master_id_and_nonce"
-    t.index ["key_master_id"], name: "index_rate_limiters_on_key_master_id"
-    t.index ["status"], name: "index_rate_limiters_on_status"
   end
 
   create_table "service_messages", force: :cascade do |t|

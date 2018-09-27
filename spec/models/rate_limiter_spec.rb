@@ -7,11 +7,16 @@ RSpec.describe RateLimiter, type: :model do
   end
 
   it 'should execute basic task correctly' do
-    r = RateExec.new throws: true
-    4.times do 
-      r.limit :expensive do
+    r = RateLimiter.new throws: true
+
+    4.times do |i|
+      r.limit :expensive, nonce: i do
         sleep 1
       end
+    end
+
+    4.times do |i|
+      expect(r.get_status :expensive, i).to eq 'pending'
     end
 
     expect do 
@@ -20,7 +25,7 @@ RSpec.describe RateLimiter, type: :model do
   end
 
   it 'should not throw exception when not configured to do so' do
-    r = RateExec.new throws: false
+    r = RateLimiter.new throws: false
 
     40.times do 
       r.limit :expensive do
@@ -30,7 +35,7 @@ RSpec.describe RateLimiter, type: :model do
   end
 
   it 'should derive shared secret correctly' do
-    public_key = RateLimiter.handshake @client.public_key
+    public_key = Gatekeeper.handshake @client.public_key
     shared_secret = @client.dh_compute_key(public_key)
     stored_key = KeyMaster.find_by(token: Base64.encode64(shared_secret))
     
@@ -39,21 +44,21 @@ RSpec.describe RateLimiter, type: :model do
 
   context 'with properly setup token' do
     before :each do
-      handshake = RateLimiter.handshake(@client.public_key, threshold: 3)
+      handshake = Gatekeeper.handshake(@client.public_key, threshold: 3)
       @shared_secret = Base64.encode64(@client.dh_compute_key(handshake))
     end
 
-    it 'should record 3 accesses properly, then throw exception' do
+    it 'should record at least 3 accesses properly, and set the state appropriately upon completion' do
       exec_results = []
       promises = []
       3.times do |i|
-        promises.push(RateLimiter.access(@shared_secret, i))
+        promises.push(Gatekeeper.access(@shared_secret, symfunc: :my_func, nonce: i))
       end
 
-      expect(RateLimiter.get_current_usage_cost(@shared_secret)).to be_within(0.1).of 3
+      expect(Gatekeeper.get_current_usage_cost(@shared_secret)).to be_within(0.1).of 3
 
       3.times do |i|
-        expect(RateLimiter.get_state(@shared_secret, i).status).to eq 'pending'
+        expect(Gatekeeper.get_state(@shared_secret, :my_func, i).status).to eq 'pending'
       end
 
       Concurrent::Promise.zip(*promises).execute.then do |results|
@@ -64,10 +69,10 @@ RSpec.describe RateLimiter, type: :model do
     end
 
     it 'once invalidated should raise ExpiredToken' do
-      RateLimiter.invalidate(@shared_secret)
+      Gatekeeper.invalidate(@shared_secret)
 
       expect do
-        RateLimiter.access(@shared_secret)
+        Gatekeeper.access(@shared_secret)
       end.to raise_error(RateLimiter::ExpiredToken)
     end
   end
@@ -75,14 +80,14 @@ RSpec.describe RateLimiter, type: :model do
   context 'with invalid token' do
     it 'should raise InvalidToken exception' do
       expect do
-        RateLimiter.access('non-existant token')
+        Gatekeeper.access('non-existant token')
       end.to raise_error(RateLimiter::InvalidToken, /No such token/)
     end
   end
 
   context 'short-period bursts' do
     before :each do
-      handshake = RateLimiter.handshake(@client.public_key, threshold: 10, period: 5.seconds)
+      handshake = Gatekeeper.handshake(@client.public_key, threshold: 10, period: 5.seconds)
       @shared_secret = Base64.encode64(@client.dh_compute_key(handshake))
     end
 
@@ -94,7 +99,7 @@ RSpec.describe RateLimiter, type: :model do
 
       iterations.times do |i|
         begin
-          promises[i] = RateLimiter.access(@shared_secret)
+          promises[i] = Gatekeeper.access(@shared_secret)
         rescue RateLimiter::Limited => e
           cost = e.message.match(/cost\: ([\d\.]+)/)
           rejections[i] = cost[1].to_f
@@ -118,7 +123,7 @@ RSpec.describe RateLimiter, type: :model do
 
   context 'periodic activity' do
     before :each do
-      handshake = RateLimiter.handshake(@client.public_key, threshold: 3, period: 5.seconds)
+      handshake = Gatekeeper.handshake(@client.public_key, threshold: 3, period: 5.seconds)
       @shared_secret = Base64.encode64(@client.dh_compute_key(handshake))
     end
 
@@ -128,8 +133,8 @@ RSpec.describe RateLimiter, type: :model do
       iterations = 20
 
       iterations.times do |i|
-        promises.push(RateLimiter.access(@shared_secret))
-        sleep 0.2
+        promises.push(Gatekeeper.access(@shared_secret))
+        sleep 0.25
       end
 
       Concurrent::Promise.zip(*promises).execute.then do |_results|
@@ -147,7 +152,7 @@ RSpec.describe RateLimiter, type: :model do
 
       begin
         iterations.times do |i|
-          promises.push(RateLimiter.access(@shared_secret))
+          promises.push(Gatekeeper.access(@shared_secret))
           successful_access = successful_access + 1
           sleep 0.1
         end
@@ -159,10 +164,10 @@ RSpec.describe RateLimiter, type: :model do
 
       puts 'Spin waiting until usage cost falls below threshold...'
       loop do
-        break if RateLimiter.get_current_usage_cost(@shared_secret) < 3
+        break if Gatekeeper.get_current_usage_cost(@shared_secret) < 3
       end
 
-      promises.push(RateLimiter.access(@shared_secret))
+      promises.push(Gatekeeper.access(@shared_secret))
       Concurrent::Promise.zip(*promises).execute.then do |_results|
         results = _results
       end.wait
