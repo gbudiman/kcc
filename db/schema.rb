@@ -36,7 +36,7 @@ ActiveRecord::Schema.define(version: 2018_09_26_003106) do
   end
 
   create_table "service_messages", force: :cascade do |t|
-    t.integer "medium", null: false
+    t.string "medium", null: false
     t.string "identifier", null: false
     t.integer "status", null: false
     t.text "body", null: false

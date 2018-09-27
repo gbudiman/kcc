@@ -1,7 +1,6 @@
 class ServiceMessage < ApplicationRecord
   before_save :prepopulate_date, :randomize_message
   enum status: [:pending, :inflight, :succeeded]
-  enum medium: [:sms, :email, :messenger, :pager, :holo]
 
   def self.reseed
     random = Random.new
@@ -9,26 +8,22 @@ class ServiceMessage < ApplicationRecord
 
     ActiveRecord::Base.transaction do
       ServiceMessage.destroy_all
-      # 100.times do |i|
-        
-      #   rand_stat = random.rand(0...ServiceMessage.statuses.length)
-      #   rand_med = random.rand(0...ServiceMessage.media.length)
-
-      #   s = {
-      #     medium: rand_med,
-      #     identifier: identifiers[random.rand(0...identifiers.length)],
-      #     status: rand_stat,
-      #     created_at: Time.now - rand(10..10000).seconds
-      #   }
-
-
-      #   #ap s
-      #   t = ServiceMessage.create! s
-      #   #ap t
-      # end
-      ServiceMessage.create medium: :sms, identifier: 500, status: :pending, body: 'is_pending'
-      ServiceMessage.create medium: :sms, identifier: 500, status: :inflight, body: 'is_inflight'
-      ServiceMessage.create medium: :sms, identifier: 600, status: :pending, body: 'show_this'
+      [[:sms, 500, :pending],
+       [:sms, 500, :inflight],
+       [:sms, 600, :pending, Time.now - 30.minutes],
+       [:sms, 600, :pending, Time.now - 29.minutes],
+       [:email, 900, :succeeded],
+       [:messenger, 333, :pending, Time.now - 30.minutes],
+       [:messenger, 333, :pending, Time.now - 28.minutes],
+       [:messenger, 333, :pending, Time.now - 25.minutes],
+       [:messenger, 333, :succeeded],
+      ].each do |k|
+        ServiceMessage.create medium: k[0],
+                              identifier: k[1],
+                              status: k[2],
+                              created_at: k[3],
+                              body: k[4]
+      end
     end
   end
 
@@ -37,17 +32,33 @@ class ServiceMessage < ApplicationRecord
 WITH inflight AS(
   SELECT DISTINCT medium, identifier
     FROM service_messages
-    WHERE status = 0
+    WHERE status = 1
 )
-SELECT * 
-  FROM service_messages
-  WHERE status = 1
-  AND (medium || identifier) NOT IN (SELECT (medium || identifier) FROM inflight)
-  ORDER BY created_at ASC
-  LIMIT 1"""
+SELECT *
+  FROM
+    (SELECT *,
+      RANK() OVER (PARTITION BY medium, identifier ORDER BY created_at ASC) AS rank
+      FROM service_messages AS sm
+      WHERE status = 0
+      AND NOT EXISTS (
+        SELECT medium, identifier 
+          FROM inflight AS ifl
+          WHERE sm.medium = ifl.medium
+            AND sm.identifier = ifl.identifier
+      )
+    ) AS ranked_pending
+  WHERE ranked_pending.rank = 1
+"""
 
     return ActiveRecord::Base.connection.execute(q)
-  
+  end
+
+  scope :distinct_recipient_pair, -> do
+    pluck(:medium, :identifier).uniq
+  end
+
+  scope :inflights, -> do
+    where(status: :inflight).distinct_recipient_pair
   end
 
 private
