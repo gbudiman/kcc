@@ -8,20 +8,30 @@ RSpec.describe RateLimiter, type: :model do
 
   it 'should execute basic task correctly' do
     r = RateLimiter.new throws: true
+    promises = []
+    results = []
+    symname = :expensive_foo
 
     4.times do |i|
-      r.limit :expensive, nonce: i do
+      promises.push(r.limit(symname, nonce: i) do
         sleep 1
-      end
+      end)
     end
 
     4.times do |i|
-      expect(r.get_status :expensive, i).to eq 'pending'
+      expect(r.get_status symname, i).to eq 'pending'
     end
 
     expect do 
       r.limit :should_raise_exception
     end.to raise_exception(RateLimiter::Limited)
+
+    Concurrent::Promise.zip(*promises).execute.then do |_results|
+      results = _results
+    end.wait
+
+    puts "#{results.count} #{symname} tasks completed"
+    expect(results.pluck(:status).uniq).to contain_exactly('completed')
   end
 
   it 'should not throw exception when not configured to do so' do
