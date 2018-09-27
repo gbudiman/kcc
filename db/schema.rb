@@ -36,11 +36,11 @@ ActiveRecord::Schema.define(version: 2018_09_26_003106) do
   end
 
   create_table "service_messages", force: :cascade do |t|
-    t.string "medium", null: false
+    t.integer "medium", null: false
     t.string "identifier", null: false
     t.integer "status", null: false
     t.text "body", null: false
-    t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.datetime "created_at", null: false
     t.index ["created_at"], name: "index_service_messages_on_created_at"
     t.index ["identifier"], name: "index_service_messages_on_identifier"
     t.index ["medium"], name: "index_service_messages_on_medium"
