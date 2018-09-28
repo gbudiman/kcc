@@ -1,12 +1,10 @@
 class Brainfuck
   def initialize input:, output:
     @input = input
-    @output = output
-
-    
+    @output = output    
   end
 
-  def interpret! script
+  def interpret! script, trace: false, breakpoints: []
     @source_code = script.split('')
     @line_pointer = 0
     @output_buffer = ''
@@ -15,53 +13,57 @@ class Brainfuck
     @stack = Stacktrace.new
     @output_buffer = Array.new
 
+    pc = 0
     move_pointer :forward
 
+    if trace
+      puts 'step -   pc: opcode       | memory                           stack '
+      puts '--------------------------------------------------------------------------'
+    end
+
     loop do
+      no_op = false
       in_position = @source_code[@line_pointer]
 
+      debug_buffer = sprintf('%4d - %4d', pc, @line_pointer)
+      pad_buffer = pad
+
       case in_position
-      when '+'
-        at_pointer :+
-        advance
-      when '-'
-        at_pointer :-
-        advance
-      when '>'
-        move_pointer :forward
-        advance
-      when '<'
-        move_pointer :backward
-        advance
-      when '.'
-        buffer
-        advance
-      when ','
-        advance
+      when '+' then at_pointer :+
+      when '-' then at_pointer :-
+      when '>' then move_pointer :forward
+      when '<' then move_pointer :backward
+      when '.' then buffer
+      when ',' then set_at_pointer $stdin.getc
       when '['
         if cell_is_zero?
           skip_to_next_closing_bracket
         else
           @stack.push({
-            line_pointer: @line_pointer + 1
+            line_pointer: @line_pointer
           })
-          advance
         end
+
+        pad_buffer = pad(is_bracket: true)
       when ']'
         if cell_is_zero?
           @stack.pop
-          advance
         else
           popped = @stack.peek
           @line_pointer = popped[:line_pointer]
         end
-      when ' '
-        advance
-      else
-        raise Brainfuck::InvalidToken, "Invalid token #{in_position} at index #{@line_pointer}"
+
+        pad_buffer = pad(is_bracket: true)
+      when ' ' then no_op = true
+      else raise Brainfuck::InvalidToken, "Invalid token #{in_position} at index #{@line_pointer}"
       end
 
-      puts "#{sprintf('%4d', @line_pointer)}: #{in_position} | [#{show_cells}]"
+      advance
+      if not no_op
+        puts "#{debug_buffer}: #{(pad_buffer + in_position).ljust(12)} | #{show_cells.ljust(32)} #{@stack.list}" if trace
+        pc = pc + 1
+      end
+
       break if @line_pointer >= @source_code.length
     end
 
@@ -82,11 +84,14 @@ class Brainfuck
     @cells[@pointer] = @cells[@pointer] + (operation == :+ ? 1 : -1)
   end
 
+  def set_at_pointer x
+    @cells[@pointer] = x
+  end
+
   def skip_to_next_closing_bracket
     advance
     loop do
       if @source_code[@line_pointer] == ']'
-        advance
         break
       end
       advance
@@ -97,11 +102,11 @@ class Brainfuck
     s = ''
 
     if @pointer > 0
-      s += @cells[0..@pointer-1].join(' ')
+      s += @cells[0..@pointer-1].join(' ') + ' '
     end
 
-    s += " #{cell_value}* "
-    s += @cells[@pointer+1..-1].join(' ')
+    s += "#{cell_value}*"
+    s += ' ' + @cells[@pointer+1..-1].join(' ')
 
     return s
   end
@@ -114,8 +119,16 @@ class Brainfuck
     return cell_value == 0
   end
 
+  def pad is_bracket: false
+    return "  " * ([@stack.list.length - (is_bracket ? 1 : 0), 0].max)
+  end
+
   def advance
     @line_pointer = @line_pointer + 1
+  end
+
+  def memdump
+    return @cells
   end
 
   def buffer

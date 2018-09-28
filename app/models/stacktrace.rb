@@ -18,4 +18,8 @@ class Stacktrace
   def empty?
     return @stack.length == 0
   end
+
+  def list
+    @stack.reverse.map{ |x| x[:line_pointer] }
+  end
 end
