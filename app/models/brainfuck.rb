@@ -34,7 +34,7 @@ class Brainfuck
       when '>' then move_pointer :forward
       when '<' then move_pointer :backward
       when '.' then buffer
-      when ',' then set_at_pointer $stdin.getc
+      when ',' then set_at_pointer
       when '['
         if cell_is_zero?
           skip_to_next_closing_bracket
@@ -84,8 +84,9 @@ class Brainfuck
     @cells[@pointer] = @cells[@pointer] + (operation == :+ ? 1 : -1)
   end
 
-  def set_at_pointer x
-    @cells[@pointer] = x
+  def set_at_pointer
+    print 'Enter one character then press enter: '
+    @cells[@pointer] = $stdin.gets.strip[0].ord
   end
 
   def skip_to_next_closing_bracket

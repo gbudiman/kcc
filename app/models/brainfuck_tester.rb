@@ -48,7 +48,6 @@ class BrainfuckTester
     print '[q]uit: '
 
     option = $stdin.gets.strip
-    ap option
     case option
     when 'b'
       set_breakpoints
